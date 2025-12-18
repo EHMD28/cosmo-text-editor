@@ -8,6 +8,8 @@ use crossterm::event::KeyEventKind;
 
 use crossterm::event::Event;
 
+use crate::app::Mode;
+
 pub enum Direction {
     Up,
     Down,
@@ -19,6 +21,7 @@ pub enum Action {
     None,
     Exit,
     Move(Direction),
+    ChangeMode,
     AddChar(char),
     RemoveChar,
 }
@@ -26,6 +29,7 @@ pub enum Action {
 pub fn handle_keyboard() -> io::Result<Action> {
     match event::read()? {
         Event::Key(key) if key.kind == KeyEventKind::Press => handle_key(key),
+        Event::Resize(_, _) => Ok(Action::None),
         _ => Ok(Action::Exit),
     }
 }
@@ -40,14 +44,14 @@ pub fn handle_key(key: KeyEvent) -> io::Result<Action> {
         KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down => {
             Ok(handle_arrow_key(key.code))
         }
-        //
+        // When a character is entered, it added to the currently selected line.
         KeyCode::Char(ch) => Ok(Action::AddChar(ch)),
+        KeyCode::Tab => Ok(Action::ChangeMode),
         // Pressing the escape key will allow the user to exit.
         KeyCode::Esc => Ok(Action::Exit),
         // TODO: Implement these later.
         // KeyCode::BackTab => todo!(),
         // KeyCode::Delete => todo!(),
-        // KeyCode::Tab => todo!(),
         // KeyCode::Home => todo!(),
         // KeyCode::End => todo!(),
         // KeyCode::PageUp => todo!(),
