@@ -1,26 +1,33 @@
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, Paragraph},
+    widgets::{Block, Borders, Clear, List, Paragraph},
     Frame,
 };
 
 use crate::app::{App, Mode};
 
 pub fn draw_ui(frame: &mut Frame, app: &mut App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![
-            Constraint::Length(2),
-            // Stretches to fill available space.
-            Constraint::Min(0),
-            Constraint::Length(2),
-        ])
-        .split(frame.area());
-    render_title(frame, chunks[0]);
-    render_main_content(frame, chunks[1], app);
-    render_info(frame, chunks[2], app);
+    match app.mode() {
+        Mode::Reading | Mode::Editing => {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(vec![
+                    Constraint::Length(2),
+                    // Stretches to fill available space.
+                    Constraint::Min(0),
+                    Constraint::Length(2),
+                ])
+                .split(frame.area());
+            render_title(frame, chunks[0]);
+            render_main_content(frame, chunks[1], app);
+            render_info(frame, chunks[2], app);
+        }
+        Mode::Exiting => {
+            render_exiting_popup(frame);
+        }
+    }
 }
 
 fn render_title(frame: &mut Frame, area: Rect) {
@@ -88,4 +95,29 @@ fn render_info(frame: &mut Frame, area: Rect, app: &App) {
     );
     let line = Line::from(pos).centered();
     frame.render_widget(line, area);
+}
+
+fn render_exiting_popup(frame: &mut Frame) {
+    let container = center(
+        frame.area(),
+        Constraint::Percentage(50),
+        Constraint::Percentage(50), // top and bottom border + content
+    );
+    let chunks = Layout::default()
+        .constraints(vec![Constraint::Percentage(80), Constraint::Percentage(20)])
+        .split(container);
+    let prompt =
+        Paragraph::new("Do you want to save your changes?").block(Block::bordered().title("Popup"));
+    let options = Paragraph::new("Yes (Y/y) or No (N/n)");
+    frame.render_widget(Clear, container);
+    frame.render_widget(prompt, chunks[0]);
+    frame.render_widget(options, chunks[1]);
+}
+
+fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect {
+    let [area] = Layout::horizontal([horizontal])
+        .flex(Flex::Center)
+        .areas(area);
+    let [area] = Layout::vertical([vertical]).flex(Flex::Center).areas(area);
+    area
 }

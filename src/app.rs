@@ -2,7 +2,7 @@ use std::{
     cmp::min,
     fmt::Display,
     fs::File,
-    io::{self, BufRead, BufReader},
+    io::{self, BufRead, BufReader, Write},
     path::Path,
 };
 
@@ -16,6 +16,7 @@ pub struct CursorPosition {
 pub enum Mode {
     Reading,
     Editing,
+    Exiting,
 }
 
 impl Display for Mode {
@@ -26,6 +27,7 @@ impl Display for Mode {
             match self {
                 Mode::Reading => "Reading",
                 Mode::Editing => "Editing",
+                Mode::Exiting => "Exiting",
             }
         )
     }
@@ -121,16 +123,23 @@ impl App {
         self.move_previous_column();
     }
 
-    /// If the current mode is reading, switch to editing and vice-versa.
-    pub fn switch_mode(&mut self) {
-        self.mode = match self.mode {
-            Mode::Reading => Mode::Editing,
-            Mode::Editing => {
-                let line_pos = self.line_pos() as usize;
-                self.lines[line_pos] = self.current_line.to_owned();
-                Mode::Reading
-            }
-        };
+    pub fn set_mode(&mut self, mode: Mode) {
+        // When transitioning from editing to reading, update the line that was being edited.
+        if matches!(self.mode, Mode::Editing) && matches!(mode, Mode::Reading) {
+            let line_pos = self.line_pos() as usize;
+            self.lines[line_pos] = self.current_line.to_owned();
+        }
+        self.mode = mode;
+    }
+
+    pub fn save_to_file(&mut self, path: &str) -> io::Result<()> {
+        let path = Path::new(path);
+        let mut file = File::create(path)?;
+        for line in self.lines.iter_mut() {
+            line.push('\n');
+            file.write_all(line.as_bytes())?;
+        }
+        Ok(())
     }
 
     pub fn list_state_mut(&mut self) -> &mut ListState {
