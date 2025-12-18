@@ -50,9 +50,10 @@ impl App {
         let reader = BufReader::new(file);
         // This syntax is ew.
         let lines = reader.lines().collect::<Result<Vec<_>, _>>()?;
+        let first_line = lines.first().unwrap_or(&String::new()).to_owned();
         Ok(App {
             lines,
-            current_line: String::new(),
+            current_line: first_line,
             position: CursorPosition { line: 0, column: 0 },
             list_state: ListState::default().with_selected(Some(0)),
             mode: Mode::Reading,
@@ -71,15 +72,13 @@ impl App {
         self.position.column = column_num;
     }
 
-    /// Selects the next line after the currently selected line. If there is no after the current
-    /// line, then the current line will remain selected.
+    /// Selects the next line after the currently selected line. If there is no line after the
+    /// current line, then a new line will be created.
     pub fn move_next_line(&mut self) {
-        let target = if self.lines.is_empty() {
-            // If the number of lines is zero, then self.lines.len() - 1 would wrap around.
-            1
-        } else {
-            min(self.lines.len() as u16 - 1, self.line_pos() + 1)
-        };
+        let target = self.line_pos() + 1;
+        if usize::from(target) == self.lines.len() {
+            self.lines.push(String::new());
+        }
         self.select_line(target);
     }
 
