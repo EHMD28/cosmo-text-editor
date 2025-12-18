@@ -1,11 +1,9 @@
 use std::{
-    borrow::Cow,
     cmp::min,
     fmt::Display,
     fs::File,
     io::{self, BufRead, BufReader},
     path::Path,
-    rc::Rc,
 };
 
 use ratatui::widgets::ListState;
@@ -127,7 +125,11 @@ impl App {
     pub fn switch_mode(&mut self) {
         self.mode = match self.mode {
             Mode::Reading => Mode::Editing,
-            Mode::Editing => Mode::Reading,
+            Mode::Editing => {
+                let line_pos = self.line_pos() as usize;
+                self.lines[line_pos] = self.current_line.to_owned();
+                Mode::Reading
+            }
         };
     }
 

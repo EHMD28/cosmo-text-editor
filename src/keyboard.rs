@@ -8,7 +8,6 @@ use crossterm::event::KeyEventKind;
 
 use crossterm::event::Event;
 
-use crate::app::Mode;
 
 pub enum Direction {
     Up,

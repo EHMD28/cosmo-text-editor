@@ -1,13 +1,12 @@
-use crossterm::style::Stylize;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{Block, Borders, List, Paragraph},
     Frame,
 };
 
-use crate::app::{self, App, Mode};
+use crate::app::{App, Mode};
 
 pub fn draw_ui(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
@@ -82,7 +81,7 @@ fn render_editing_line(frame: &mut Frame, area: Rect, app: &mut App) {
 
 fn render_info(frame: &mut Frame, area: Rect, app: &App) {
     let pos = format!(
-        "Line (↑↓): {} | Column (←→): {} | Mode (Tab): {}",
+        "Line (↑↓): {} | Column (←→): {} | Mode (Tab): {} | Exit (ESC)",
         app.line_pos() + 1,
         app.column_pos() + 1,
         app.mode(),
