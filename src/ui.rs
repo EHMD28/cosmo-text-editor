@@ -5,17 +5,20 @@ use ratatui::{
     Frame,
 };
 
-pub fn draw_ui(frame: &mut Frame) {
+use crate::app::App;
+
+pub fn draw_ui(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
-            Constraint::Length(1),
-            Constraint::Percentage(96),
-            Constraint::Length(1),
+            Constraint::Length(2),
+            // Stretches to fill available space.
+            Constraint::Min(0),
+            Constraint::Length(2),
         ])
         .split(frame.area());
     frame.render_widget(title(), chunks[0]);
-    frame.render_widget(text_area(), chunks[1]);
+    frame.render_stateful_widget(file_lines(app), chunks[1], app.list_state_mut());
     frame.render_widget(info(), chunks[2]);
 }
 
@@ -23,17 +26,10 @@ fn title<'a>() -> Line<'a> {
     Line::from("Cosmo Text Editor").centered()
 }
 
-fn text_area<'a>() -> List<'a> {
-    let items = [
-        "I met a traveller from an antique land",
-        "Who said—\"Two vast and trunkless legs of stone",
-        "Stand in the desert. . . . Near them, on the sand",
-    ];
-    let items = items
-        .iter()
-        .enumerate()
-        .map(|(i, line)| format!("{i}. {line}"));
-    List::new(items).block(Block::new().borders(Borders::ALL))
+fn file_lines<'a>(app: &App) -> List<'a> {
+    List::new(app.lines().clone())
+        .block(Block::new().borders(Borders::ALL))
+        .highlight_symbol(">> ")
 }
 
 fn info<'a>() -> Line<'a> {
