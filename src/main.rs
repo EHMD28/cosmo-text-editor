@@ -15,13 +15,19 @@ use crate::{
 fn main() -> io::Result<()> {
     let path = "temp/poem.txt";
     let mut terminal = ratatui::init();
-    let mut app = App::new(path)?;
-    // Returns true if the user wants to save, otherwise returns false.
-    let do_save = run_app(&mut terminal, &mut app)?;
-    ratatui::restore();
-    if do_save {
-        app.save_to_file(path)?;
-        println!("Saved");
+    match App::new(path) {
+        Ok(mut app) => {
+            let do_save = run_app(&mut terminal, &mut app)?;
+            ratatui::restore();
+            if do_save {
+                app.save_to_file(path)?;
+                println!("Saved");
+            }
+        }
+        Err(err) => {
+            ratatui::restore();
+            eprintln!("{err}");
+        }
     }
     Ok(())
 }
@@ -36,25 +42,28 @@ fn run_app(
         match handle_keyboard(app.mode())? {
             Action::None => {}
             Action::Exit => return Ok(false),
-            Action::Move(direction) => match direction {
-                keyboard::Direction::Up if !is_editing => app.move_previous_line(),
-                keyboard::Direction::Down if !is_editing => app.move_next_line(),
-                keyboard::Direction::Left if is_editing => {
-                    app.move_previous_column();
-                }
-                keyboard::Direction::Right if is_editing => {
-                    app.move_next_column();
-                }
-                // Do nothing.
-                _ => {}
-            },
+            Action::Save => return Ok(true),
+            Action::Move(direction) => handle_movement(app, is_editing, direction),
             Action::ChangeMode(mode) => app.set_mode(mode),
             Action::AddChar(ch) if is_editing => app.insert_char(ch),
             Action::RemoveChar if is_editing => app.remove_char(),
-            Action::Save => {
-                return Ok(true);
-            }
+            Action::AddLine => app.insert_newline(),
             _ => {}
         }
+    }
+}
+
+fn handle_movement(app: &mut App, is_editing: bool, direction: keyboard::Direction) {
+    match direction {
+        keyboard::Direction::Up if !is_editing => app.move_previous_line(),
+        keyboard::Direction::Down if !is_editing => app.move_next_line(),
+        keyboard::Direction::Left if is_editing => {
+            app.move_previous_column();
+        }
+        keyboard::Direction::Right if is_editing => {
+            app.move_next_column();
+        }
+        // Do nothing.
+        _ => {}
     }
 }

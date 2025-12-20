@@ -24,13 +24,14 @@ pub enum Action {
     ChangeMode(Mode),
     AddChar(char),
     RemoveChar,
+    AddLine,
     Save,
 }
 
 pub fn handle_keyboard(mode: &Mode) -> io::Result<Action> {
     match event::read()? {
         Event::Key(key) if key.kind == KeyEventKind::Press => match mode {
-            Mode::Reading | Mode::Editing => handle_key(key, mode),
+            Mode::Reading | Mode::Editing => handle_editing_key(key, mode),
             Mode::Exiting => handle_exiting_key(key),
         },
         Event::Resize(_, _) => Ok(Action::None),
@@ -38,12 +39,12 @@ pub fn handle_keyboard(mode: &Mode) -> io::Result<Action> {
     }
 }
 
-pub fn handle_key(key: KeyEvent, mode: &Mode) -> io::Result<Action> {
+fn handle_editing_key(key: KeyEvent, mode: &Mode) -> io::Result<Action> {
     match key.code {
         // Pressing backspace deletes one character.
         KeyCode::Backspace => Ok(Action::RemoveChar),
         // Pressing enter creates a new line.
-        KeyCode::Enter => Ok(Action::AddChar('\n')),
+        KeyCode::Enter => Ok(Action::AddLine),
         // Arrow keys.
         KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down => {
             Ok(handle_arrow_key(key.code))
@@ -72,7 +73,7 @@ fn handle_arrow_key(code: KeyCode) -> Action {
     }
 }
 
-pub fn handle_exiting_key(key: KeyEvent) -> io::Result<Action> {
+fn handle_exiting_key(key: KeyEvent) -> io::Result<Action> {
     if let KeyCode::Char(ch) = key.code {
         if ch.eq_ignore_ascii_case(&'Y') {
             return Ok(Action::Save);

@@ -8,7 +8,7 @@ use std::{
 
 use ratatui::widgets::ListState;
 
-pub struct CursorPosition {
+struct CursorPosition {
     line: u16,
     column: u16,
 }
@@ -63,6 +63,7 @@ impl App {
     /// Selects line number `line`, starting from 0.
     fn select_line(&mut self, line_num: u16) {
         self.position.line = line_num;
+        self.position.column = 0;
         let line_num = line_num as usize;
         self.list_state.select(Some(line_num));
         self.current_line = self.lines[line_num].to_owned();
@@ -70,16 +71,32 @@ impl App {
 
     fn select_column(&mut self, column_num: u16) {
         self.position.column = column_num;
+        let past_end_of_line = self.current_line.len() == column_num.into();
+        let is_space = self.current_char() == ' ';
+        if past_end_of_line {
+            if !is_space {
+                self.current_line.push(' ');
+            } else {
+                self.move_previous_column();
+            }
+        }
+    }
+
+    fn current_char(&mut self) -> char {
+        self.current_line
+            .chars()
+            .nth((self.column_pos() - 1).into())
+            .unwrap_or_default()
     }
 
     /// Selects the next line after the currently selected line. If there is no line after the
-    /// current line, then a new line will be created.
+    /// current line, then the current line will remain selected.
     pub fn move_next_line(&mut self) {
-        let target = self.line_pos() + 1;
-        if usize::from(target) == self.lines.len() {
-            self.lines.push(String::new());
-        }
-        self.select_line(target);
+        let target = min(self.lines.len() - 1, (self.line_pos() + 1).into());
+        // if usize::from(target) == self.lines.len() {
+        //     self.lines.push(String::new());
+        // }
+        self.select_line(target as u16);
     }
 
     /// Selects the line before the currently selected line. If no line is before the current line,
@@ -95,12 +112,8 @@ impl App {
     }
 
     pub fn move_next_column(&mut self) {
-        let target = if (self.column_pos()) as usize == (self.current_line().len() - 1) {
-            self.current_line().len() - 1
-        } else {
-            (self.column_pos() + 1).into()
-        };
-        self.select_column(target as u16);
+        let target = self.column_pos() + 1;
+        self.select_column(target);
     }
 
     pub fn move_previous_column(&mut self) {
@@ -113,13 +126,24 @@ impl App {
     }
 
     pub fn insert_char(&mut self, ch: char) {
-        self.current_line.insert(self.column_pos().into(), ch);
+        // If the cursor is at the end of a line, then insert a new column.
+        let target: usize = if self.current_line.len() + 1 == self.column_pos().into() {
+            (self.column_pos() + 1).into()
+        } else {
+            self.column_pos().into()
+        };
+        self.current_line.insert(target, ch);
         self.move_next_column();
     }
 
     pub fn remove_char(&mut self) {
         self.current_line.remove(self.column_pos().into());
         self.move_previous_column();
+    }
+
+    pub fn insert_newline(&mut self) {
+        self.lines
+            .insert((self.line_pos() + 1).into(), String::from(" "));
     }
 
     pub fn set_mode(&mut self, mode: Mode) {

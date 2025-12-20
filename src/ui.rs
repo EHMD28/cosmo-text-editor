@@ -1,5 +1,5 @@
 use ratatui::{
-    layout::{Constraint, Direction, Flex, Layout, Rect},
+    layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, Paragraph},
@@ -14,24 +14,18 @@ pub fn draw_ui(frame: &mut Frame, app: &mut App) {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(vec![
-                    Constraint::Length(2),
                     // Stretches to fill available space.
                     Constraint::Min(0),
-                    Constraint::Length(2),
+                    Constraint::Percentage(10),
                 ])
                 .split(frame.area());
-            render_title(frame, chunks[0]);
-            render_main_content(frame, chunks[1], app);
-            render_info(frame, chunks[2], app);
+            render_main_content(frame, chunks[0], app);
+            render_info(frame, chunks[1], app);
         }
         Mode::Exiting => {
             render_exiting_popup(frame);
         }
     }
-}
-
-fn render_title(frame: &mut Frame, area: Rect) {
-    frame.render_widget(Line::from("Cosmo Text Editor").centered(), area);
 }
 
 fn render_main_content(frame: &mut Frame, area: Rect, app: &mut App) {
@@ -44,8 +38,18 @@ fn render_main_content(frame: &mut Frame, area: Rect, app: &mut App) {
 }
 
 fn render_lines(frame: &mut Frame, area: Rect, app: &mut App) {
-    let list = List::new(app.lines_vec().clone())
-        .block(Block::new().borders(Borders::ALL))
+    let numbered_lines = app
+        .lines_vec()
+        .iter()
+        .enumerate()
+        .map(|(i, line)| format!("{: >3}. {}", i + 1, line));
+    let list = List::new(numbered_lines)
+        .block(
+            Block::new()
+                .borders(Borders::ALL)
+                .title(" Cosmo Text Editor ")
+                .title_alignment(Alignment::Center),
+        )
         .highlight_symbol(">> ")
         .highlight_style(if matches!(app.mode(), Mode::Editing) {
             Style::new().fg(Color::DarkGray)
@@ -88,7 +92,7 @@ fn render_editing_line(frame: &mut Frame, area: Rect, app: &mut App) {
 
 fn render_info(frame: &mut Frame, area: Rect, app: &App) {
     let pos = format!(
-        "Line (↑↓): {} | Column (←→): {} | Mode (Tab): {} | Exit (ESC)",
+        "Line (↑↓): {} | Column (←→): {} | Newline (Enter) | Mode (Tab): {} | Exit (ESC)",
         app.line_pos() + 1,
         app.column_pos() + 1,
         app.mode(),
