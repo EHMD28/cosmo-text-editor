@@ -1,3 +1,6 @@
+use std::cmp::max;
+
+use crossterm::style::Stylize;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Style},
@@ -5,6 +8,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, Paragraph},
     Frame,
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::app::{App, Mode};
 
@@ -42,6 +46,7 @@ fn render_lines(frame: &mut Frame, area: Rect, app: &mut App) {
         .lines_vec()
         .iter()
         .enumerate()
+        // Number each line. Each number is right-justfied with space padding to the left.
         .map(|(i, line)| format!("{: >3}. {}", i + 1, line));
     let list = List::new(numbered_lines)
         .block(
@@ -66,24 +71,19 @@ fn render_editing_line(frame: &mut Frame, area: Rect, app: &mut App) {
     } else {
         Style::new().fg(Color::DarkGray)
     };
-    let current_line = app.current_line();
-    let column_pos = app.column_pos() as usize;
-    let current_line = if !current_line.is_empty() {
-        Line::from(vec![
-            Span::from(current_line[0..column_pos].to_owned()),
-            Span::styled(
-                current_line[column_pos..(column_pos + 1)].to_owned(),
-                if is_editing {
-                    Style::new().fg(Color::Black).bg(Color::White)
-                } else {
-                    Style::new()
-                },
-            ),
-            Span::from(current_line[(column_pos + 1)..].to_owned()),
-        ])
-    } else {
-        Line::from(current_line)
-    };
+    let highlighted_style = Style::new().fg(Color::Black).bg(Color::White);
+    let current_line = app
+        .current_line()
+        .graphemes(true)
+        .enumerate()
+        .map(|(index, grapheme)| {
+            if index == app.column_pos().into() {
+                Span::styled(grapheme, highlighted_style)
+            } else {
+                Span::styled(grapheme, Style::default())
+            }
+        });
+    let current_line = Line::from(current_line.collect::<Vec<_>>());
     let editing_line = Paragraph::new(current_line)
         .block(Block::new().borders(Borders::ALL))
         .style(style);

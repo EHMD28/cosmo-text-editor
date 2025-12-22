@@ -72,7 +72,8 @@ impl App {
     fn select_column(&mut self, column_num: u16) {
         self.position.column = column_num;
         let past_end_of_line = self.current_line.len() == column_num.into();
-        let is_space = self.current_char() == ' ';
+        let previous_column = u16::saturating_sub(self.column_pos(), 1);
+        let is_space = self.char_at(previous_column.into()) == ' ';
         if past_end_of_line {
             if !is_space {
                 self.current_line.push(' ');
@@ -82,11 +83,8 @@ impl App {
         }
     }
 
-    fn current_char(&mut self) -> char {
-        self.current_line
-            .chars()
-            .nth((self.column_pos() - 1).into())
-            .unwrap_or_default()
+    fn char_at(&mut self, n: usize) -> char {
+        self.current_line.chars().nth(n).unwrap_or_default()
     }
 
     /// Selects the next line after the currently selected line. If there is no line after the
@@ -102,12 +100,7 @@ impl App {
     /// Selects the line before the currently selected line. If no line is before the current line,
     /// then the current line will remain selected.
     pub fn move_previous_line(&mut self) {
-        let target = if self.line_pos() == 0 {
-            // If the current line is zero, then self.current_line() - 1 would wrap around.
-            0
-        } else {
-            self.line_pos() - 1
-        };
+        let target = u16::saturating_sub(self.line_pos(), 1);
         self.select_line(target);
     }
 
@@ -117,11 +110,12 @@ impl App {
     }
 
     pub fn move_previous_column(&mut self) {
-        let target = if self.column_pos() == 0 {
-            0
-        } else {
-            self.column_pos() - 1
-        };
+        // let target = if self.column_pos() == 0 {
+        //     0
+        // } else {
+        //     self.column_pos() - 1
+        // };
+        let target = u16::saturating_sub(self.column_pos(), 1);
         self.select_column(target);
     }
 
