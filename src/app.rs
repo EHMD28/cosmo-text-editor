@@ -156,34 +156,31 @@ impl App {
         self.mode = mode;
     }
 
-    /// Returns a tuple representing the start (inclusive) and end (exclusive) for the current line.
+    /// Returns a tuple representing the start (inclusive) and end (inclusive) for the current line.
     /// This allows for horizontal scrolling.
     pub fn calculate_offset(&mut self, area: Rect) -> (usize, usize) {
+        // TODO: only scroll when reaching the start/end of a line.
         // The border around the editing line has two vertical bars on each side.
         let border_width = 2;
         // The number of columns in the editing line.
         let num_columns = usize::from(area.width - border_width);
         let column_pos = usize::from(self.column_pos());
-        /*
-            The offset should be set so that the cursor is always visible. This means that
-            first_visible_column <= column_pos <= last_visible_column.
-            column_pos = last_visible_column
-            column_pos = (num_columns - 1) + offset
-            offset = column_pos - num_columns + 1
-        */
-        self.offset = if column_pos >= num_columns {
-            column_pos - num_columns + 1
+        // The leftmost visible column.
+        let leftmost_column = self.offset;
+        // The rightmost visible column.
+        let rightmost_column = min(self.current_line_len() - 1, (num_columns - 1) + self.offset);
+        if column_pos < leftmost_column {
+            self.offset = self.offset.saturating_sub(1);
+            (
+                leftmost_column.saturating_sub(1),
+                rightmost_column.saturating_sub(1),
+            )
+        } else if column_pos > rightmost_column {
+            self.offset += 1;
+            (leftmost_column + 1, rightmost_column + 1)
         } else {
-            0
-        };
-        // The leftmost visible column in the editing line.
-        let start = self.offset;
-        /*
-            The column after rightmost visible column in the editing line, since the range is
-            exclusive.
-        */
-        let end = min(self.current_line_len(), num_columns + self.offset);
-        (start, end)
+            (leftmost_column, rightmost_column)
+        }
     }
 
     /// Writes all the lines in self.lines to a file at the given path.
@@ -204,10 +201,6 @@ impl App {
     pub fn lines_vec(&self) -> &Vec<String> {
         &self.lines
     }
-
-    // pub fn lines(&self) -> Vec<&str> {
-    //     self.lines.iter().map(|line| line.as_ref()).collect()
-    // }
 
     pub fn current_line(&self) -> &str {
         &self.current_line

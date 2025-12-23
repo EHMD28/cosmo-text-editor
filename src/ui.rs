@@ -66,7 +66,7 @@ fn render_lines(frame: &mut Frame, area: Rect, app: &mut App) {
 fn render_editing_line(frame: &mut Frame, area: Rect, app: &mut App) {
     let is_editing = matches!(app.mode(), Mode::Editing);
     let (start, end) = app.calculate_offset(area);
-    let current_line = &app.current_line()[start..end];
+    let current_line = &app.current_line()[start..=end];
     let highlighted_style = Style::new().fg(Color::Black).bg(Color::White);
     let current_line = current_line
         .graphemes(true)
@@ -90,26 +90,12 @@ fn render_editing_line(frame: &mut Frame, area: Rect, app: &mut App) {
     frame.render_widget(editing_line, area);
 }
 
-// /// Returns a tuple representing the start (inclusive) and end (exclusive) for the current line.
-// /// This allows for horizontal scrolling.
-// fn calculate_offset(app: &mut App, area: Rect) -> (usize, usize) {
-//     // The border has two vertical bar characters on the side.
-//     let border_width = 2;
-//     // The number of graphemes which can be displayed using a monospace font.
-//     let true_width = usize::from(area.width - border_width);
-//     let column_pos = usize::from(app.column_pos());
-//     let offset = column_pos.saturating_sub(true_width);
-//     (offset, min(app.current_line_len(), offset + true_width))
-// }
-
 fn render_info(frame: &mut Frame, area: Rect, app: &App) {
     let pos = format!(
-        "Line (↑↓): {} | Column (←→): {} | Newline (Enter) | Mode (Tab): {} | DEBUG: ({}, {}) | Exit (ESC)",
+        "Line (↑↓): {} | Column (←→): {} | Newline (Enter) | Mode (Tab): {} | Exit (ESC)",
         app.line_pos() + 1,
         app.column_pos() + 1,
         app.mode(),
-        app.offset(),
-        frame.area().width
     );
     let line = Line::from(pos).centered();
     frame.render_widget(line, area);
@@ -132,6 +118,7 @@ fn render_exiting_popup(frame: &mut Frame) {
     frame.render_widget(options, chunks[1]);
 }
 
+/// Copied from https://ratatui.rs/recipes/layout/center-a-widget/
 fn center(area: Rect, horizontal: Constraint, vertical: Constraint) -> Rect {
     let [area] = Layout::horizontal([horizontal])
         .flex(Flex::Center)
