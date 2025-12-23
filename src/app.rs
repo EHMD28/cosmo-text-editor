@@ -1,3 +1,4 @@
+use core::num;
 use std::{
     cmp::min,
     fmt::Display,
@@ -6,7 +7,8 @@ use std::{
     path::Path,
 };
 
-use ratatui::widgets::ListState;
+use ratatui::{layout::Rect, widgets::ListState};
+use unicode_segmentation::UnicodeSegmentation;
 
 struct CursorPosition {
     line: u16,
@@ -33,11 +35,19 @@ impl Display for Mode {
     }
 }
 
+/// Used for representing the current state of the app.
 pub struct App {
+    /// The lines of the file being currently edited.
     lines: Vec<String>,
-    current_line: String,
-    position: CursorPosition,
+    /// The current state of the `List` representing the lines of the file
     list_state: ListState,
+    /// The current line being edited.
+    current_line: String,
+    /// The offset of the current line (used for horizontal scrolling).
+    offset: usize,
+    /// Current row and column being viewed/edited.
+    position: CursorPosition,
+    /// The current mode of the app (reading, editing, or exiting).
     mode: Mode,
 }
 
@@ -57,6 +67,7 @@ impl App {
             position: CursorPosition { line: 0, column: 0 },
             list_state: ListState::default().with_selected(Some(0)),
             mode: Mode::Reading,
+            offset: 0,
         })
     }
 
@@ -64,6 +75,7 @@ impl App {
     fn select_line(&mut self, line_num: u16) {
         self.position.line = line_num;
         self.position.column = 0;
+        self.offset = 0;
         let line_num = line_num as usize;
         self.list_state.select(Some(line_num));
         self.current_line = self.lines[line_num].to_owned();
@@ -110,11 +122,6 @@ impl App {
     }
 
     pub fn move_previous_column(&mut self) {
-        // let target = if self.column_pos() == 0 {
-        //     0
-        // } else {
-        //     self.column_pos() - 1
-        // };
         let target = u16::saturating_sub(self.column_pos(), 1);
         self.select_column(target);
     }
@@ -149,6 +156,37 @@ impl App {
         self.mode = mode;
     }
 
+    /// Returns a tuple representing the start (inclusive) and end (exclusive) for the current line.
+    /// This allows for horizontal scrolling.
+    pub fn calculate_offset(&mut self, area: Rect) -> (usize, usize) {
+        // The border around the editing line has two vertical bars on each side.
+        let border_width = 2;
+        // The number of columns in the editing line.
+        let num_columns = usize::from(area.width - border_width);
+        let column_pos = usize::from(self.column_pos());
+        /*
+            The offset should be set so that the cursor is always visible. This means that
+            first_visible_column <= column_pos <= last_visible_column.
+            column_pos = last_visible_column
+            column_pos = (num_columns - 1) + offset
+            offset = column_pos - num_columns + 1
+        */
+        self.offset = if column_pos >= num_columns {
+            column_pos - num_columns + 1
+        } else {
+            0
+        };
+        // The leftmost visible column in the editing line.
+        let start = self.offset;
+        /*
+            The column after rightmost visible column in the editing line, since the range is
+            exclusive.
+        */
+        let end = min(self.current_line_len(), num_columns + self.offset);
+        (start, end)
+    }
+
+    /// Writes all the lines in self.lines to a file at the given path.
     pub fn save_to_file(&mut self, path: &str) -> io::Result<()> {
         let path = Path::new(path);
         let mut file = File::create(path)?;
@@ -175,6 +213,10 @@ impl App {
         &self.current_line
     }
 
+    pub fn current_line_len(&self) -> usize {
+        self.current_line.graphemes(true).count()
+    }
+
     /// Returns the currently selected line starting from 0.
     pub fn line_pos(&self) -> u16 {
         self.position.line
@@ -187,5 +229,9 @@ impl App {
 
     pub fn mode(&self) -> &Mode {
         &self.mode
+    }
+
+    pub fn offset(&self) -> usize {
+        self.offset
     }
 }

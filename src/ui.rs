@@ -1,6 +1,5 @@
-use std::cmp::max;
+use std::cmp::min;
 
-use crossterm::style::Stylize;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Style},
@@ -66,36 +65,51 @@ fn render_lines(frame: &mut Frame, area: Rect, app: &mut App) {
 
 fn render_editing_line(frame: &mut Frame, area: Rect, app: &mut App) {
     let is_editing = matches!(app.mode(), Mode::Editing);
-    let style = if is_editing {
-        Style::new().fg(Color::White)
-    } else {
-        Style::new().fg(Color::DarkGray)
-    };
+    let (start, end) = app.calculate_offset(area);
+    let current_line = &app.current_line()[start..end];
     let highlighted_style = Style::new().fg(Color::Black).bg(Color::White);
-    let current_line = app
-        .current_line()
+    let current_line = current_line
         .graphemes(true)
         .enumerate()
         .map(|(index, grapheme)| {
-            if index == app.column_pos().into() {
+            if index + app.offset() == app.column_pos().into() {
                 Span::styled(grapheme, highlighted_style)
             } else {
                 Span::styled(grapheme, Style::default())
             }
         });
     let current_line = Line::from(current_line.collect::<Vec<_>>());
+    let line_style = if is_editing {
+        Style::new().fg(Color::White)
+    } else {
+        Style::new().fg(Color::DarkGray)
+    };
     let editing_line = Paragraph::new(current_line)
         .block(Block::new().borders(Borders::ALL))
-        .style(style);
+        .style(line_style);
     frame.render_widget(editing_line, area);
 }
 
+// /// Returns a tuple representing the start (inclusive) and end (exclusive) for the current line.
+// /// This allows for horizontal scrolling.
+// fn calculate_offset(app: &mut App, area: Rect) -> (usize, usize) {
+//     // The border has two vertical bar characters on the side.
+//     let border_width = 2;
+//     // The number of graphemes which can be displayed using a monospace font.
+//     let true_width = usize::from(area.width - border_width);
+//     let column_pos = usize::from(app.column_pos());
+//     let offset = column_pos.saturating_sub(true_width);
+//     (offset, min(app.current_line_len(), offset + true_width))
+// }
+
 fn render_info(frame: &mut Frame, area: Rect, app: &App) {
     let pos = format!(
-        "Line (↑↓): {} | Column (←→): {} | Newline (Enter) | Mode (Tab): {} | Exit (ESC)",
+        "Line (↑↓): {} | Column (←→): {} | Newline (Enter) | Mode (Tab): {} | DEBUG: ({}, {}) | Exit (ESC)",
         app.line_pos() + 1,
         app.column_pos() + 1,
         app.mode(),
+        app.offset(),
+        frame.area().width
     );
     let line = Line::from(pos).centered();
     frame.render_widget(line, area);
