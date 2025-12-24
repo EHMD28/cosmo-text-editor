@@ -1,7 +1,7 @@
 use std::{
     cmp::min,
     fmt::Display,
-    fs::{create_dir_all, File, OpenOptions},
+    fs::File,
     io::{self, BufRead, BufReader, ErrorKind, Write},
     path::{Path, PathBuf},
 };

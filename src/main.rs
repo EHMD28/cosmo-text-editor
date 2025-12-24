@@ -3,7 +3,7 @@ mod keyboard;
 mod ui;
 
 use std::{
-    io::{self, ErrorKind, Stdout},
+    io::{self, Stdout},
     path::PathBuf,
 };
 

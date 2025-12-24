@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, Paragraph},
+    widgets::{Block, Clear, List, Paragraph},
     Frame,
 };
 use unicode_segmentation::UnicodeSegmentation;
