@@ -65,7 +65,11 @@ fn render_editing_line(frame: &mut Frame, area: Rect, app: &mut App) {
     let is_editing = matches!(app.mode(), Mode::Editing);
     let (start, end) = app.calculate_offset(area);
     let graphemes: Vec<_> = app.current_line().graphemes(true).collect();
-    let current_line = &graphemes[start..=end];
+    let current_line = if !graphemes.is_empty() {
+        &graphemes[start..=end]
+    } else {
+        &vec![""]
+    };
     let highlighted_style = Style::new().fg(Color::Black).bg(Color::White);
     let current_line = current_line.iter().enumerate().map(|(index, grapheme)| {
         if index + app.offset() == app.column_pos().into() {

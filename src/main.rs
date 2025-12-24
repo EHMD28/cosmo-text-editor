@@ -2,8 +2,12 @@ mod app;
 mod keyboard;
 mod ui;
 
-use std::io::{self, Stdout};
+use std::{
+    io::{self, ErrorKind, Stdout},
+    path::PathBuf,
+};
 
+use clap::Parser;
 use ratatui::{prelude::CrosstermBackend, Terminal};
 
 use crate::{
@@ -12,22 +16,22 @@ use crate::{
     ui::draw_ui,
 };
 
+#[derive(Parser)]
+#[command(version, about)]
+struct CliArgs {
+    path: PathBuf,
+}
+
 fn main() -> io::Result<()> {
-    let path = "temp/poem.txt";
+    let CliArgs { path } = CliArgs::parse();
     let mut terminal = ratatui::init();
-    match App::new(path) {
-        Ok(mut app) => {
-            let do_save = run_app(&mut terminal, &mut app)?;
-            ratatui::restore();
-            if do_save {
-                app.save_to_file(path)?;
-                println!("Saved");
-            }
-        }
-        Err(err) => {
-            ratatui::restore();
-            eprintln!("{err}");
-        }
+    let mut app = App::new(&path);
+    app.load_file()?;
+    let do_save = run_app(&mut terminal, &mut app)?;
+    ratatui::restore();
+    if do_save {
+        app.save_to_file(&path)?;
+        println!("Saved file to {}", path.display());
     }
     Ok(())
 }

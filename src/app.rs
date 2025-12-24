@@ -1,9 +1,9 @@
 use std::{
     cmp::min,
     fmt::Display,
-    fs::File,
-    io::{self, BufRead, BufReader, Write},
-    path::Path,
+    fs::{create_dir_all, File, OpenOptions},
+    io::{self, BufRead, BufReader, ErrorKind, Write},
+    path::{Path, PathBuf},
 };
 
 use ratatui::{layout::Rect, widgets::ListState};
@@ -36,6 +36,8 @@ impl Display for Mode {
 
 /// Used for representing the current state of the app.
 pub struct App {
+    /// The path of the file being currently edited
+    path: PathBuf,
     /// The lines of the file being currently edited.
     lines: Vec<String>,
     /// The current state of the `List` representing the lines of the file
@@ -53,21 +55,53 @@ pub struct App {
 impl App {
     /// Creates a new instance of `App` using the provided file path. If an error occurs when
     /// opening the file, it will will be returned.
-    pub fn new(path: &str) -> io::Result<App> {
-        let path = Path::new(path);
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        // This syntax is ew.
-        let lines = reader.lines().collect::<Result<Vec<_>, _>>()?;
-        let first_line = lines.first().unwrap_or(&String::new()).to_owned();
-        Ok(App {
-            lines,
-            current_line: first_line,
-            position: CursorPosition { line: 0, column: 0 },
+    pub fn new(path: &PathBuf) -> App {
+        App {
+            path: path.to_owned(),
+            lines: Vec::new(),
             list_state: ListState::default().with_selected(Some(0)),
-            mode: Mode::Reading,
+            current_line: String::new(),
             offset: 0,
-        })
+            position: CursorPosition { line: 0, column: 0 },
+            mode: Mode::Reading,
+        }
+    }
+
+    pub fn load_file(&mut self) -> io::Result<()> {
+        let result = File::open(&self.path);
+        match result {
+            Ok(file) => {
+                let reader = BufReader::new(file);
+                // This syntax is eww.
+                let lines = reader.lines().collect::<Result<Vec<_>, _>>()?;
+                let first_line = lines.first().unwrap_or(&String::new()).to_owned();
+                self.lines = lines;
+                self.current_line = first_line;
+                Ok(())
+            }
+            Err(err) => {
+                if matches!(err.kind(), ErrorKind::NotFound) {
+                    // In this case, just add a blank first line, otherwise just using the defaults
+                    // from new().
+                    let default_line = String::from("Welcome to Cosmo!");
+                    self.lines.push(default_line.to_owned());
+                    self.current_line = default_line;
+                    Ok(())
+                } else {
+                    Err(err)
+                }
+            }
+        }
+    }
+
+    /// Writes all the lines in self.lines to a file at the given path.
+    pub fn save_to_file(&mut self, path: &Path) -> io::Result<()> {
+        let mut file = File::create(path)?;
+        for line in self.lines.iter_mut() {
+            line.push('\n');
+            file.write_all(line.as_bytes())?;
+        }
+        Ok(())
     }
 
     /// Selects line number `line`, starting from 0.
@@ -139,15 +173,21 @@ impl App {
     }
 
     pub fn insert_newline(&mut self) {
-        self.lines
-            .insert((self.line_pos() + 1).into(), String::from(" "));
+        if self.lines.is_empty() {
+            self.lines.push(String::from(" "));
+        } else {
+            self.lines
+                .insert((self.line_pos() + 1).into(), String::from(" "));
+        }
     }
 
     pub fn set_mode(&mut self, mode: Mode) {
         // When transitioning from editing to reading, update the line that was being edited.
         if matches!(self.mode, Mode::Editing) && matches!(mode, Mode::Reading) {
             let line_pos = self.line_pos() as usize;
-            self.lines[line_pos] = self.current_line.to_owned();
+            if !self.lines.is_empty() {
+                self.lines[line_pos] = self.current_line.to_owned();
+            }
         }
         self.mode = mode;
     }
@@ -155,6 +195,9 @@ impl App {
     /// Returns a tuple representing the start (inclusive) and end (inclusive) for the current line.
     /// This allows for horizontal scrolling.
     pub fn calculate_offset(&mut self, area: Rect) -> (usize, usize) {
+        if self.current_line_len() == 0 {
+            return (0, 0);
+        }
         // The border around the editing line has two vertical bars on each side.
         let border_width = 2;
         // The number of columns in the editing line.
@@ -163,7 +206,10 @@ impl App {
         // The leftmost visible column.
         let leftmost_column = self.offset;
         // The rightmost visible column.
-        let rightmost_column = min(self.current_line_len() - 1, (num_columns - 1) + self.offset);
+        let rightmost_column = min(
+            self.current_line_len().saturating_sub(1),
+            (num_columns.saturating_sub(1)) + self.offset,
+        );
         if column_pos < leftmost_column {
             self.offset = self.offset.saturating_sub(1);
             (
@@ -176,17 +222,6 @@ impl App {
         } else {
             (leftmost_column, rightmost_column)
         }
-    }
-
-    /// Writes all the lines in self.lines to a file at the given path.
-    pub fn save_to_file(&mut self, path: &str) -> io::Result<()> {
-        let path = Path::new(path);
-        let mut file = File::create(path)?;
-        for line in self.lines.iter_mut() {
-            line.push('\n');
-            file.write_all(line.as_bytes())?;
-        }
-        Ok(())
     }
 
     pub fn list_state_mut(&mut self) -> &mut ListState {
