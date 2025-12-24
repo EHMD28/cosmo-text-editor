@@ -1,5 +1,3 @@
-use std::cmp::min;
-
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     style::{Color, Style},
@@ -45,39 +43,37 @@ fn render_lines(frame: &mut Frame, area: Rect, app: &mut App) {
         .lines_vec()
         .iter()
         .enumerate()
-        // Number each line. Each number is right-justfied with space padding to the left.
+        // Number each line. Each line number is right-justfied with space padding to the left.
         .map(|(i, line)| format!("{: >3}. {}", i + 1, line));
+    let highlight_style = if matches!(app.mode(), Mode::Editing) {
+        Style::new().fg(Color::DarkGray)
+    } else {
+        Style::default()
+    };
     let list = List::new(numbered_lines)
         .block(
-            Block::new()
-                .borders(Borders::ALL)
+            Block::bordered()
                 .title(" Cosmo Text Editor ")
                 .title_alignment(Alignment::Center),
         )
         .highlight_symbol(">> ")
-        .highlight_style(if matches!(app.mode(), Mode::Editing) {
-            Style::new().fg(Color::DarkGray)
-        } else {
-            Style::default()
-        });
+        .highlight_style(highlight_style);
     frame.render_stateful_widget(list, area, app.list_state_mut());
 }
 
 fn render_editing_line(frame: &mut Frame, area: Rect, app: &mut App) {
     let is_editing = matches!(app.mode(), Mode::Editing);
     let (start, end) = app.calculate_offset(area);
-    let current_line = &app.current_line()[start..=end];
+    let graphemes: Vec<_> = app.current_line().graphemes(true).collect();
+    let current_line = &graphemes[start..=end];
     let highlighted_style = Style::new().fg(Color::Black).bg(Color::White);
-    let current_line = current_line
-        .graphemes(true)
-        .enumerate()
-        .map(|(index, grapheme)| {
-            if index + app.offset() == app.column_pos().into() {
-                Span::styled(grapheme, highlighted_style)
-            } else {
-                Span::styled(grapheme, Style::default())
-            }
-        });
+    let current_line = current_line.iter().enumerate().map(|(index, grapheme)| {
+        if index + app.offset() == app.column_pos().into() {
+            Span::styled(*grapheme, highlighted_style)
+        } else {
+            Span::styled(*grapheme, Style::default())
+        }
+    });
     let current_line = Line::from(current_line.collect::<Vec<_>>());
     let line_style = if is_editing {
         Style::new().fg(Color::White)
@@ -85,7 +81,7 @@ fn render_editing_line(frame: &mut Frame, area: Rect, app: &mut App) {
         Style::new().fg(Color::DarkGray)
     };
     let editing_line = Paragraph::new(current_line)
-        .block(Block::new().borders(Borders::ALL))
+        .block(Block::bordered())
         .style(line_style);
     frame.render_widget(editing_line, area);
 }

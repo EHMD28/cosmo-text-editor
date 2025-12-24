@@ -1,4 +1,3 @@
-use core::num;
 use std::{
     cmp::min,
     fmt::Display,
@@ -83,10 +82,10 @@ impl App {
 
     fn select_column(&mut self, column_num: u16) {
         self.position.column = column_num;
-        let past_end_of_line = self.current_line.len() == column_num.into();
-        let previous_column = u16::saturating_sub(self.column_pos(), 1);
-        let is_space = self.char_at(previous_column.into()) == ' ';
-        if past_end_of_line {
+        let is_past_end_of_line = self.current_line_len() == column_num.into();
+        let previous_column = self.column_pos().saturating_sub(1);
+        let is_space = self.grapheme_at(previous_column.into()) == " ";
+        if is_past_end_of_line {
             if !is_space {
                 self.current_line.push(' ');
             } else {
@@ -95,17 +94,14 @@ impl App {
         }
     }
 
-    fn char_at(&mut self, n: usize) -> char {
-        self.current_line.chars().nth(n).unwrap_or_default()
+    fn grapheme_at(&mut self, n: usize) -> &str {
+        self.current_line.graphemes(true).nth(n).unwrap_or_default()
     }
 
     /// Selects the next line after the currently selected line. If there is no line after the
     /// current line, then the current line will remain selected.
     pub fn move_next_line(&mut self) {
         let target = min(self.lines.len() - 1, (self.line_pos() + 1).into());
-        // if usize::from(target) == self.lines.len() {
-        //     self.lines.push(String::new());
-        // }
         self.select_line(target as u16);
     }
 
@@ -128,7 +124,7 @@ impl App {
 
     pub fn insert_char(&mut self, ch: char) {
         // If the cursor is at the end of a line, then insert a new column.
-        let target: usize = if self.current_line.len() + 1 == self.column_pos().into() {
+        let target: usize = if self.current_line_len() + 1 == self.column_pos().into() {
             (self.column_pos() + 1).into()
         } else {
             self.column_pos().into()
@@ -159,7 +155,6 @@ impl App {
     /// Returns a tuple representing the start (inclusive) and end (inclusive) for the current line.
     /// This allows for horizontal scrolling.
     pub fn calculate_offset(&mut self, area: Rect) -> (usize, usize) {
-        // TODO: only scroll when reaching the start/end of a line.
         // The border around the editing line has two vertical bars on each side.
         let border_width = 2;
         // The number of columns in the editing line.
